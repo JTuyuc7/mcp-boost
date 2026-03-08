@@ -152,7 +152,7 @@ export function analyzeImports(
     testFilePath: string,
     root: string
 ): ImportsAnalysis {
-    const aliases = loadTsconfigAliases(root);
+    const aliases: PathAliases = loadTsconfigAliases(root);
 
     let sourceContent: string = "";
     try {
