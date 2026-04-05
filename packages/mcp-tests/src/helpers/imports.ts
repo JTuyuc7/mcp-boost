@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readTsconfigJson } from "./repo.js";
+import { extractStaticImports } from "./native-imports.js";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -168,12 +169,8 @@ export function analyzeImports(
     }
 
     const detectedImports: DetectedImport[] = [];
-    let match: RegExpExecArray | null;
-    IMPORT_RE.lastIndex = 0;
 
-    while ((match = IMPORT_RE.exec(sourceContent)) !== null) {
-        const rawBindings = match[1] ?? "";
-        const specifier = match[2];
+    for (const { bindings: rawBindings, specifier } of extractStaticImports(sourceContent, IMPORT_RE)) {
         if (!specifier) continue;
 
         const kind = classifySpecifier(specifier, aliases);

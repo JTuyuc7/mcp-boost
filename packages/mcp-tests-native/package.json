@@ -1,0 +1,28 @@
+{
+  "name": "@mcp/tests-native",
+  "version": "0.1.0",
+  "description": "Optional Rust acceleration for @mcp/tests",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "native"
+  ],
+  "scripts": {
+    "build": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true }); require('node:fs').writeFileSync('dist/.keep', 'native build optional\\n'); console.log('Skipping native build (optional). Run pnpm run build:native to compile Rust addon.')\"",
+    "build:native": "napi build --release native"
+  },
+  "keywords": [
+    "rust",
+    "napi",
+    "mcp"
+  ],
+  "license": "ISC",
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  }
+}
+
+
