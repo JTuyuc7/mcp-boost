@@ -7,8 +7,11 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+.turbo/
+target/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.node
