@@ -7,4 +7,14 @@ export interface StaticImportMatch {
   bindings: string
   specifier: string
 }
+export interface ExtractedDeclaration {
+  kind: string
+  name: string
+  lines: Array<string>
+}
+export interface TestContextScan {
+  relativeImports: Array<string>
+  ownExports: Array<ExtractedDeclaration>
+}
 export declare function extractStaticImports(source: string): Array<StaticImportMatch>
+export declare function scanTestContextSource(source: string): TestContextScan

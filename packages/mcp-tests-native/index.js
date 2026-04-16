@@ -39,7 +39,17 @@ function extractStaticImports() {
   return binding.extractStaticImports.apply(binding, arguments);
 }
 
+function scanTestContextSource() {
+  if (!binding || typeof binding.scanTestContextSource !== "function") {
+    throw new Error(
+      "@mcp/tests-native binary does not expose scanTestContextSource. Rebuild with 'pnpm --filter @mcp/tests-native run build:native'."
+    );
+  }
+  return binding.scanTestContextSource.apply(binding, arguments);
+}
+
 module.exports = {
   extractStaticImports,
+  scanTestContextSource,
 };
 

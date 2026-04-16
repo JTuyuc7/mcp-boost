@@ -8,7 +8,8 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "verify:native-consumption": "node ./scripts/verify-native-consumption.mjs"
+    "verify:native-consumption": "node ./scripts/verify-native-consumption.mjs",
+    "verify:get-test-context-parity": "node ./scripts/verify-get-test-context-parity.mjs"
   },
   "keywords": [],
   "author": "",

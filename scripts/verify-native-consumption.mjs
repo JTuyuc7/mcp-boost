@@ -23,6 +23,10 @@ async function main() {
   const helperModule = await import(pathToFileURL(helperPath).href);
   const { extractStaticImports } = helperModule;
 
+  const contextHelperPath = path.join(repoRoot, "packages/mcp-tests/dist/helpers/native-test-context.js");
+  const contextHelperModule = await import(pathToFileURL(contextHelperPath).href);
+  const { scanTestContextSource } = contextHelperModule;
+
   const probe = extractStaticImports('import a from "x";', new RegExp("a^"));
   console.log("\nProbe output:", JSON.stringify(probe));
 
@@ -31,7 +35,17 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\nNative consumption check passed: @mcp/tests is using @mcp/tests-native.");
+  const contextProbe = scanTestContextSource([
+    'export interface Foo { value: string }',
+    'import { bar } from "./bar";'
+  ].join("\n"));
+
+  if (!contextProbe || contextProbe.relativeImports.length === 0 || contextProbe.ownExports.length === 0) {
+    console.error("\nNative test-context check failed: fallback parser appears to be active.");
+    process.exit(1);
+  }
+
+  console.log("\nNative consumption check passed: @mcp/tests is using @mcp/tests-native (imports + test-context scan).");
 }
 
 main().catch((error) => {
