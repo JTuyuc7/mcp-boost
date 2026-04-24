@@ -45,7 +45,14 @@ jobs:
             echo "NPM_TOKEN is empty or unavailable in this workflow context."
             exit 1
           fi
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          TOKEN_CLEAN="$(printf '%s' "$NPM_TOKEN" | tr -d '\r\n')"
+          if [ "${#TOKEN_CLEAN}" -lt 20 ]; then
+            echo "NPM_TOKEN looks invalid after sanitization."
+            exit 1
+          fi
+          echo "Sanitized NPM token length: ${#TOKEN_CLEAN}"
+          printf "//registry.npmjs.org/:_authToken=%s\n" "$TOKEN_CLEAN" > ~/.npmrc
+          echo "NPM_TOKEN_SANITIZED=$TOKEN_CLEAN" >> "$GITHUB_ENV"
           npm whoami
           npm org ls mcp-boost --json
 
@@ -56,5 +63,5 @@ jobs:
           publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ env.NPM_TOKEN_SANITIZED }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN_SANITIZED }}
