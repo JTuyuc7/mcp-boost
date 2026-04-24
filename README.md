@@ -67,3 +67,6 @@ Required repo secret:
 3. Create an npm automation token.
 4. Add token as GitHub secret `NPM_TOKEN`.
 5. Merge PRs with changesets into `master`.
+
+------
+Developed by Jaime T
