@@ -17,6 +17,19 @@ function run(command) {
   });
 }
 
+function hasCargo() {
+  try {
+    execSync("cargo --version", {
+      cwd: repoRoot,
+      stdio: "ignore",
+      env: process.env,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function runOnce({ rootPath, filePath, disableNative }) {
   const result = spawnSync(
     process.execPath,
@@ -43,14 +56,14 @@ function runOnce({ rootPath, filePath, disableNative }) {
 function normalizePayload(payload) {
   const file = payload?.files?.[0] ?? {};
   const ownExports = (file.ownExports ?? [])
-    .map((d) => `${d.kind}:${d.name}`)
+    .map((d) => `${d.kind}:${d.name}:${d.snippet ?? ""}`)
     .sort();
 
   const depExports = Object.fromEntries(
     Object.entries(file.dependencyExports ?? {})
       .map(([dep, list]) => [
         dep,
-        (list ?? []).map((d) => `${d.kind}:${d.name}`).sort(),
+        (list ?? []).map((d) => `${d.kind}:${d.name}:${d.snippet ?? ""}`).sort(),
       ])
       .sort(([a], [b]) => a.localeCompare(b))
   );
@@ -63,57 +76,66 @@ function normalizePayload(payload) {
 }
 
 function main() {
+  if (!hasCargo()) {
+    console.log("\nSkipping get_test_context parity check: Rust cargo is not installed on this machine.");
+    return;
+  }
+
   run("pnpm --filter @mcp/tests-native run build:native");
   run("pnpm --filter @mcp/tests build");
 
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-tests-context-"));
-  const srcDir = path.join(fixtureRoot, "src");
-  fs.mkdirSync(srcDir, { recursive: true });
+  try {
+    const srcDir = path.join(fixtureRoot, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
 
-  const mainFile = path.join(srcDir, "main.ts");
-  const depFile = path.join(srcDir, "dep.ts");
+    const mainFile = path.join(srcDir, "main.ts");
+    const depFile = path.join(srcDir, "dep.ts");
 
-  fs.writeFileSync(
-    mainFile,
-    [
-      'import { DepType, depFn } from "./dep";',
-      "",
-      "export interface MainType {",
-      "  value: string;",
-      "}",
-      "",
-      "export function useDep(input: DepType): string {",
-      "  return depFn(input);",
-      "}",
-    ].join("\n"),
-    "utf-8"
-  );
+    fs.writeFileSync(
+      mainFile,
+      [
+        'import { DepType, depFn } from "./dep";',
+        "",
+        "export interface MainType {",
+        "  value: string;",
+        "}",
+        "",
+        "export function useDep(input: DepType): string {",
+        "  return depFn(input);",
+        "}",
+      ].join("\n"),
+      "utf-8"
+    );
 
-  fs.writeFileSync(
-    depFile,
-    [
-      "export type DepType = { id: string };",
-      "export function depFn(input: DepType): string {",
-      "  return input.id;",
-      "}",
-    ].join("\n"),
-    "utf-8"
-  );
+    fs.writeFileSync(
+      depFile,
+      [
+        "export type DepType = { id: string };",
+        "export function depFn(input: DepType): string {",
+        "  return input.id;",
+        "}",
+      ].join("\n"),
+      "utf-8"
+    );
 
-  const nativePayload = runOnce({ rootPath: fixtureRoot, filePath: mainFile, disableNative: false });
-  const fallbackPayload = runOnce({ rootPath: fixtureRoot, filePath: mainFile, disableNative: true });
+    const nativePayload = runOnce({ rootPath: fixtureRoot, filePath: mainFile, disableNative: false });
+    const fallbackPayload = runOnce({ rootPath: fixtureRoot, filePath: mainFile, disableNative: true });
 
-  const nativeShape = normalizePayload(nativePayload);
-  const fallbackShape = normalizePayload(fallbackPayload);
+    const nativeShape = normalizePayload(nativePayload);
+    const fallbackShape = normalizePayload(fallbackPayload);
 
-  if (JSON.stringify(nativeShape) !== JSON.stringify(fallbackShape)) {
-    console.error("\nNative vs fallback mismatch detected.");
-    console.error("Native:", JSON.stringify(nativeShape, null, 2));
-    console.error("Fallback:", JSON.stringify(fallbackShape, null, 2));
-    process.exit(1);
+    if (JSON.stringify(nativeShape) !== JSON.stringify(fallbackShape)) {
+      console.error("\nNative vs fallback mismatch detected.");
+      console.error("Native:", JSON.stringify(nativeShape, null, 2));
+      console.error("Fallback:", JSON.stringify(fallbackShape, null, 2));
+      process.exit(1);
+    }
+
+    console.log("\nget_test_context parity check passed (native == fallback).\n");
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }
-
-  console.log("\nget_test_context parity check passed (native == fallback).\n");
 }
 
 main();
