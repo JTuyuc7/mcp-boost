@@ -27,6 +27,8 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+          scope: "@mcp-boost"
+          always-auth: true
           cache: pnpm
 
       - name: Install dependencies
@@ -34,6 +36,18 @@ jobs:
 
       - name: Build workspace
         run: pnpm build
+
+      - name: Verify npm auth for publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "NPM_TOKEN is empty or unavailable in this workflow context."
+            exit 1
+          fi
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          npm whoami
+          npm org ls mcp-boost --json
 
       - name: Create release PR or publish packages
         uses: changesets/action@v1
@@ -43,3 +57,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
