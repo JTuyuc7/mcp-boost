@@ -1,7 +1,7 @@
 {
-  "name": "@mcp/tests-native",
-  "version": "0.1.1",
-  "description": "Optional Rust acceleration for @mcp/tests",
+  "name": "@mcp-boost/tests-native",
+  "version": "0.1.0",
+  "description": "Optional Rust acceleration for @mcp-boost/tests",
   "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",
@@ -48,3 +48,5 @@
     "@napi-rs/cli": "^2.18.4"
   }
 }
+
+

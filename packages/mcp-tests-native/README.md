@@ -1,15 +1,15 @@
-# @mcp/tests-native
+# @mcp-boost/tests-native
 
-Optional Rust acceleration for `@mcp/tests`.
+Optional Rust acceleration for `@mcp-boost/tests`.
 
 This package is **non-blocking**:
-- If the native binary is present, `@mcp/tests` uses it for static import extraction.
-- If it is missing, `@mcp/tests` falls back to the existing TypeScript parser.
+- If the native binary is present, `@mcp-boost/tests` uses it for static import extraction.
+- If it is missing, `@mcp-boost/tests` falls back to the existing TypeScript parser.
 
 ## Install
 
 Normally you do not install this package directly.
-Install `@mcp/tests` and it will use this package as an optional dependency when available.
+Install `@mcp-boost/tests` and it will use this package as an optional dependency when available.
 
 ## Build native binary
 
@@ -18,12 +18,12 @@ Prerequisites:
 - Node.js and pnpm
 
 ```bash
-pnpm --filter @mcp/tests-native run build:native
+pnpm --filter @mcp-boost/tests-native run build:native
 ```
 
 The command outputs `native/index.node`.
 
-## Verify `@mcp/tests` consumes native path
+## Verify `@mcp-boost/tests` consumes native path
 
 One command from repo root:
 
@@ -34,8 +34,8 @@ pnpm verify:native-consumption
 Equivalent manual steps:
 
 ```bash
-pnpm --filter @mcp/tests-native run build:native
-pnpm --filter @mcp/tests build
+pnpm --filter @mcp-boost/tests-native run build:native
+pnpm --filter @mcp-boost/tests build
 node --input-type=module -e "import { extractStaticImports } from './packages/mcp-tests/dist/helpers/native-imports.js'; console.log(extractStaticImports('import a from \\\"x\\\";', new RegExp('a^')));"
 ```
 

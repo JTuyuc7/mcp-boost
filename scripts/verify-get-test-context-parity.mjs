@@ -81,8 +81,8 @@ function main() {
     return;
   }
 
-  run("pnpm --filter @mcp/tests-native run build:native");
-  run("pnpm --filter @mcp/tests build");
+  run("pnpm --filter @mcp-boost/tests-native run build:native");
+  run("pnpm --filter @mcp-boost/tests build");
 
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-tests-context-"));
   try {

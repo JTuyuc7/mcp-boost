@@ -34,7 +34,7 @@ function getNativeScanner(): ((source: string) => RawNativeTestContextScan) | nu
 
     try {
         const require = createRequire(import.meta.url);
-        const mod = require("@mcp/tests-native") as NativeContextModule;
+        const mod = require("@mcp-boost/tests-native") as NativeContextModule;
 
         if (typeof mod.scanTestContextSource === "function") {
             cachedNativeScanner = mod.scanTestContextSource;
