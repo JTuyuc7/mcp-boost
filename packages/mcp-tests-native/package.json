@@ -34,7 +34,7 @@
   },
   "scripts": {
     "build": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true }); require('node:fs').writeFileSync('dist/.keep', 'native build optional\\n'); console.log('Skipping native build (optional). Run pnpm run build:native to compile Rust addon.')\"",
-    "build:native": "napi build --release native"
+    "build:native": "napi build --release"
   },
   "keywords": [
     "rust",
