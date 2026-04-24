@@ -5,11 +5,33 @@
   "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js"
+    }
+  },
   "files": [
     "index.js",
     "index.d.ts",
-    "native"
+    "native",
+    "README.md"
   ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github-personal.com/JTuyuc7/mcp-boost.git",
+    "directory": "packages/mcp-tests-native"
+  },
+  "homepage": "https://github-personal.com/JTuyuc7/mcp-boost/tree/master/packages/mcp-tests-native",
+  "bugs": {
+    "url": "https://github-personal.com/JTuyuc7/mcp-boost/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true }); require('node:fs').writeFileSync('dist/.keep', 'native build optional\\n'); console.log('Skipping native build (optional). Run pnpm run build:native to compile Rust addon.')\"",
     "build:native": "napi build --release native"
@@ -17,8 +39,10 @@
   "keywords": [
     "rust",
     "napi",
-    "mcp"
+    "mcp",
+    "native-addon"
   ],
+  "author": "Jaime Tuyuc",
   "license": "ISC",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4"

@@ -6,6 +6,11 @@ This package is **non-blocking**:
 - If the native binary is present, `@mcp/tests` uses it for static import extraction.
 - If it is missing, `@mcp/tests` falls back to the existing TypeScript parser.
 
+## Install
+
+Normally you do not install this package directly.
+Install `@mcp/tests` and it will use this package as an optional dependency when available.
+
 ## Build native binary
 
 Prerequisites:
