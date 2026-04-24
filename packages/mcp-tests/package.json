@@ -1,6 +1,6 @@
 {
-  "name": "@mcp/tests",
-  "version": "0.1.1",
+  "name": "@mcp-boost/tests",
+  "version": "0.1.0",
   "description": "MCP server for test planning, coverage analysis, and safe test-file generation in JS/TS projects.",
   "type": "module",
   "main": "./dist/server.js",
@@ -55,7 +55,7 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "@mcp/tests-native": "workspace:^"
+    "@mcp-boost/tests-native": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^25.3.1",

@@ -33,7 +33,7 @@ const binding = loadNativeBinding();
 function extractStaticImports() {
   if (!binding || typeof binding.extractStaticImports !== "function") {
     throw new Error(
-      "@mcp/tests-native binary is not built. Run 'pnpm --filter @mcp/tests-native run build:native'."
+      "@mcp-boost/tests-native binary is not built. Run 'pnpm --filter @mcp-boost/tests-native run build:native'."
     );
   }
   return binding.extractStaticImports.apply(binding, arguments);
@@ -42,7 +42,7 @@ function extractStaticImports() {
 function scanTestContextSource() {
   if (!binding || typeof binding.scanTestContextSource !== "function") {
     throw new Error(
-      "@mcp/tests-native binary does not expose scanTestContextSource. Rebuild with 'pnpm --filter @mcp/tests-native run build:native'."
+      "@mcp-boost/tests-native binary does not expose scanTestContextSource. Rebuild with 'pnpm --filter @mcp-boost/tests-native run build:native'."
     );
   }
   return binding.scanTestContextSource.apply(binding, arguments);

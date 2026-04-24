@@ -16,7 +16,7 @@ function getNativeExtractor(): ((source: string) => StaticImportMatch[]) | null 
 
     try {
         const require = createRequire(import.meta.url);
-        const mod = require("@mcp/tests-native") as NativeImportsModule;
+        const mod = require("@mcp-boost/tests-native") as NativeImportsModule;
 
         if (typeof mod.extractStaticImports === "function") {
             cachedNativeExtractor = mod.extractStaticImports;

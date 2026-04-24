@@ -1,4 +1,4 @@
-# @mcp/tests
+# @mcp-boost/tests
 
 MCP server for test automation in JavaScript/TypeScript repositories.
 
@@ -13,10 +13,10 @@ MCP server for test automation in JavaScript/TypeScript repositories.
 ## Install
 
 ```bash
-npm install @mcp/tests
+npm install @mcp-boost/tests
 ```
 
-Optional native acceleration is resolved via `@mcp/tests-native` automatically when available.
+Optional native acceleration is resolved via `@mcp-boost/tests-native` automatically when available.
 
 ## Run
 
@@ -35,6 +35,6 @@ node ./dist/server.js
 ## Development
 
 ```bash
-pnpm --filter @mcp/tests build
-pnpm --filter @mcp/tests dev
+pnpm --filter @mcp-boost/tests build
+pnpm --filter @mcp-boost/tests dev
 ```

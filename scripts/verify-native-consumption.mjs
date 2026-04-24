@@ -34,8 +34,8 @@ async function main() {
   }
 
   // Ensure the native addon exists and TS artifacts are up to date.
-  run("pnpm --filter @mcp/tests-native run build:native");
-  run("pnpm --filter @mcp/tests build");
+  run("pnpm --filter @mcp-boost/tests-native run build:native");
+  run("pnpm --filter @mcp-boost/tests build");
 
   const helperPath = path.join(repoRoot, "packages/mcp-tests/dist/helpers/native-imports.js");
   const helperModule = await import(pathToFileURL(helperPath).href);
@@ -63,7 +63,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\nNative consumption check passed: @mcp/tests is using @mcp/tests-native (imports + test-context scan).");
+  console.log("\nNative consumption check passed: @mcp-boost/tests is using @mcp-boost/tests-native (imports + test-context scan).");
 }
 
 main().catch((error) => {

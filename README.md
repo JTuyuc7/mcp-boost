@@ -4,8 +4,8 @@ Monorepo for MCP tooling focused on automated test planning, coverage workflows,
 
 ## Packages
 
-- `@mcp/tests`: MCP server with tools for planning test work, reading source/test context, running coverage, and writing test files.
-- `@mcp/tests-native`: optional Rust acceleration used by `@mcp/tests` for selected parsing paths.
+- `@mcp-boost/tests`: MCP server with tools for planning test work, reading source/test context, running coverage, and writing test files.
+- `@mcp-boost/tests-native`: optional Rust acceleration used by `@mcp-boost/tests` for selected parsing paths.
 
 ## Requirements
 
