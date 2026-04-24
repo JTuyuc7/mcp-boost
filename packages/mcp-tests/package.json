@@ -1,6 +1,6 @@
 {
   "name": "@mcp/tests",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for test planning, coverage analysis, and safe test-file generation in JS/TS projects.",
   "type": "module",
   "main": "./dist/server.js",
