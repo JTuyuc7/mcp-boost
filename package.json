@@ -1,21 +1,39 @@
 {
   "name": "mcp-boost",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Monorepo for MCP test-generation tooling with optional Rust acceleration.",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github-personal.com/JTuyuc7/mcp-boost.git"
+  },
+  "homepage": "https://github-personal.com/JTuyuc7/mcp-boost#readme",
+  "bugs": {
+    "url": "https://github-personal.com/JTuyuc7/mcp-boost/issues"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "verify:native-consumption": "node ./scripts/verify-native-consumption.mjs",
-    "verify:get-test-context-parity": "node ./scripts/verify-get-test-context-parity.mjs"
+    "verify:get-test-context-parity": "node ./scripts/verify-get-test-context-parity.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "testing",
+    "typescript",
+    "rust"
+  ],
+  "author": "Jaime Tuyuc",
   "license": "ISC",
   "packageManager": "pnpm@10.30.2",
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "turbo": "^2.8.11"
   }
 }

@@ -1,16 +1,53 @@
 {
   "name": "@mcp/tests",
   "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "description": "MCP server for test planning, coverage analysis, and safe test-file generation in JS/TS projects.",
   "type": "module",
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "bin": {
+    "mcp-tests": "./bin/mcp-tests.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github-personal.com/JTuyuc7/mcp-boost.git",
+    "directory": "packages/mcp-tests"
+  },
+  "homepage": "https://github-personal.com/JTuyuc7/mcp-boost/tree/master/packages/mcp-tests",
+  "bugs": {
+    "url": "https://github-personal.com/JTuyuc7/mcp-boost/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "prepack": "pnpm run build"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "testing",
+    "coverage",
+    "typescript"
+  ],
+  "author": "Jaime Tuyuc",
   "license": "ISC",
   "packageManager": "pnpm@10.30.2",
   "dependencies": {
@@ -18,7 +55,7 @@
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "@mcp/tests-native": "workspace:*"
+    "@mcp/tests-native": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^25.3.1",
