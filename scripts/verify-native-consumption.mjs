@@ -14,7 +14,25 @@ function run(command) {
   });
 }
 
+function hasCargo() {
+  try {
+    execSync("cargo --version", {
+      cwd: repoRoot,
+      stdio: "ignore",
+      env: process.env,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
+  if (!hasCargo()) {
+    console.log("\nSkipping native consumption check: Rust cargo is not installed on this machine.");
+    return;
+  }
+
   // Ensure the native addon exists and TS artifacts are up to date.
   run("pnpm --filter @mcp/tests-native run build:native");
   run("pnpm --filter @mcp/tests build");

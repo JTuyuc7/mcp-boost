@@ -9,6 +9,7 @@
  */
 
 import fs from "node:fs";
+import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -147,6 +148,38 @@ function scanSource(content: string): {
     };
 }
 
+interface AnalyzerCaches {
+    fileContent: Map<string, Promise<string | null>>;
+    sourceScan: Map<string, ReturnType<typeof scanSource>>;
+}
+
+async function readFileCached(
+    filePath: string,
+    caches: AnalyzerCaches
+): Promise<string | null> {
+    const cached = caches.fileContent.get(filePath);
+    if (cached) return cached;
+
+    const pending = fsPromises.readFile(filePath, "utf-8").catch(() => null);
+    caches.fileContent.set(filePath, pending);
+    return pending;
+}
+
+async function getFileScan(
+    filePath: string,
+    caches: AnalyzerCaches
+): Promise<ReturnType<typeof scanSource> | null> {
+    const cached = caches.sourceScan.get(filePath);
+    if (cached) return cached;
+
+    const content = await readFileCached(filePath, caches);
+    if (content === null) return null;
+
+    const scanned = scanSource(content);
+    caches.sourceScan.set(filePath, scanned);
+    return scanned;
+}
+
 /**
  * Extrae bloques de declaraciones exportadas de un archivo TypeScript/JavaScript.
  * Estrategia: detecta la línea de inicio de cada declaración y recoge hasta
@@ -240,17 +273,19 @@ interface FileContext {
     warnings: string[];
 }
 
-function analyzeFileContext(
+async function analyzeFileContext(
     sourceFile: string,
     root: string,
-    maxDepth: number
-): FileContext {
+    maxDepth: number,
+    caches: AnalyzerCaches
+): Promise<FileContext> {
     const warnings: string[] = [];
     const resolved = path.isAbsolute(sourceFile)
         ? sourceFile
         : path.resolve(root, sourceFile);
 
-    if (!fs.existsSync(resolved)) {
+    const sourceScan = await getFileScan(resolved, caches);
+    if (!sourceScan) {
         return {
             file: resolved,
             relativePath: path.relative(root, resolved),
@@ -260,9 +295,6 @@ function analyzeFileContext(
             warnings: [`File not found: ${resolved}`],
         };
     }
-
-    const content = fs.readFileSync(resolved, "utf-8");
-    const sourceScan = scanSource(content);
 
     // Extraer declaraciones del propio archivo
     const ownExports = sourceScan.ownExports;
@@ -275,13 +307,15 @@ function analyzeFileContext(
     const toVisit: Array<{ file: string; depth: number; scan?: ReturnType<typeof scanSource> }> = [
         { file: resolved, depth: 0, scan: sourceScan },
     ];
+    let queueIndex = 0;
     const visited = new Set<string>([resolved]);
 
-    while (toVisit.length > 0) {
-        const current = toVisit.shift()!;
+    while (queueIndex < toVisit.length) {
+        const current = toVisit[queueIndex++]!;
         if (current.depth >= maxDepth) continue;
 
-        const currentScan = current.scan ?? scanSource(fs.readFileSync(current.file, "utf-8"));
+        const currentScan = current.scan ?? (await getFileScan(current.file, caches));
+        if (!currentScan) continue;
 
         for (const importStr of currentScan.relativeImports) {
             if (!importStr) continue;
@@ -303,19 +337,19 @@ function analyzeFileContext(
             if (!visited.has(depResolved)) {
                 visited.add(depResolved);
 
-                try {
-                    const depContent = fs.readFileSync(depResolved, "utf-8");
-                    const depScan = scanSource(depContent);
-                    const depExports = depScan.ownExports;
-                    if (depExports.length > 0) {
-                        dependencyExports[relDep] = depExports;
-                    }
-
-                    if (current.depth + 1 < maxDepth) {
-                        toVisit.push({ file: depResolved, depth: current.depth + 1, scan: depScan });
-                    }
-                } catch {
+                const depScan = await getFileScan(depResolved, caches);
+                if (!depScan) {
                     warnings.push(`Could not read dependency: ${relDep}`);
+                    continue;
+                }
+
+                const depExports = depScan.ownExports;
+                if (depExports.length > 0) {
+                    dependencyExports[relDep] = depExports;
+                }
+
+                if (current.depth + 1 < maxDepth) {
+                    toVisit.push({ file: depResolved, depth: current.depth + 1, scan: depScan });
                 }
             }
         }
@@ -367,6 +401,29 @@ function formatFileContext(ctx: FileContext): string {
     return parts.join("\n");
 }
 
+async function mapWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+    if (items.length === 0) return [];
+
+    const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+    const results = new Array<R>(items.length);
+    let nextIndex = 0;
+
+    async function runWorker() {
+        while (true) {
+            const currentIndex = nextIndex++;
+            if (currentIndex >= items.length) return;
+            results[currentIndex] = await worker(items[currentIndex]!, currentIndex);
+        }
+    }
+
+    await Promise.all(Array.from({ length: safeConcurrency }, () => runWorker()));
+    return results;
+}
+
 // ---------------------------------------------------------------------------
 // Tool registration
 // ---------------------------------------------------------------------------
@@ -389,12 +446,14 @@ export function registerGetTestContext(server: McpServer): void {
             if (!rootResult.ok) return rootPathErrorResponse(rootResult);
             const root = rootResult.root;
 
-            const fileContexts: FileContext[] = [];
+            const caches: AnalyzerCaches = {
+                fileContent: new Map<string, Promise<string | null>>(),
+                sourceScan: new Map<string, ReturnType<typeof scanSource>>(),
+            };
 
-            for (const file of args.files) {
-                const ctx = analyzeFileContext(file, root, args.maxDepth);
-                fileContexts.push(ctx);
-            }
+            const fileContexts = await mapWithConcurrency(args.files, 4, (file) =>
+                analyzeFileContext(file, root, args.maxDepth, caches)
+            );
 
             // Structured JSON output
             const structured = fileContexts.map((ctx) => ({
