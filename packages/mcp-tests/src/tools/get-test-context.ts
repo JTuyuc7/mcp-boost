@@ -13,6 +13,7 @@ import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { resolveRootPath, rootPathErrorResponse } from "../helpers/repo.js";
+import { scanTestContextSource as scanNativeTestContextSource } from "../helpers/native-test-context.js";
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -104,6 +105,46 @@ interface ExtractedDeclaration {
     kind: "interface" | "type" | "enum" | "const" | "function" | "class" | "default" | "other";
     name: string;
     lines: string[];
+}
+
+function normalizeDeclarationKind(kind: string): ExtractedDeclaration["kind"] {
+    if (kind === "interface") return "interface";
+    if (kind === "type") return "type";
+    if (kind === "enum") return "enum";
+    if (kind === "const") return "const";
+    if (kind === "function") return "function";
+    if (kind === "class") return "class";
+    if (kind === "default") return "default";
+    return "other";
+}
+
+function scanSource(content: string): {
+    relativeImports: string[];
+    ownExports: ExtractedDeclaration[];
+} {
+    const native = scanNativeTestContextSource(content);
+    if (native) {
+        return {
+            relativeImports: native.relativeImports,
+            ownExports: native.ownExports.map((decl) => ({
+                kind: normalizeDeclarationKind(decl.kind),
+                name: decl.name,
+                lines: decl.lines,
+            })),
+        };
+    }
+
+    const relativeImports: string[] = [];
+    RELATIVE_IMPORT_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = RELATIVE_IMPORT_RE.exec(content)) !== null) {
+        if (match[1]) relativeImports.push(match[1]);
+    }
+
+    return {
+        relativeImports,
+        ownExports: extractExportedDeclarations(content),
+    };
 }
 
 /**
@@ -221,17 +262,18 @@ function analyzeFileContext(
     }
 
     const content = fs.readFileSync(resolved, "utf-8");
+    const sourceScan = scanSource(content);
 
     // Extraer declaraciones del propio archivo
-    const ownExports = extractExportedDeclarations(content);
+    const ownExports = sourceScan.ownExports;
 
     // Encontrar imports relativos (primer nivel)
     const firstLevelImports: string[] = [];
     const dependencyExports: Record<string, ExtractedDeclaration[]> = {};
 
     // BFS hasta maxDepth
-    const toVisit: Array<{ file: string; depth: number }> = [
-        { file: resolved, depth: 0 },
+    const toVisit: Array<{ file: string; depth: number; scan?: ReturnType<typeof scanSource> }> = [
+        { file: resolved, depth: 0, scan: sourceScan },
     ];
     const visited = new Set<string>([resolved]);
 
@@ -239,14 +281,9 @@ function analyzeFileContext(
         const current = toVisit.shift()!;
         if (current.depth >= maxDepth) continue;
 
-        const c = fs.readFileSync(current.file, "utf-8");
-        let match: RegExpExecArray | null;
+        const currentScan = current.scan ?? scanSource(fs.readFileSync(current.file, "utf-8"));
 
-        // Reset lastIndex para cada nueva búsqueda
-        RELATIVE_IMPORT_RE.lastIndex = 0;
-
-        while ((match = RELATIVE_IMPORT_RE.exec(c)) !== null) {
-            const importStr = match[1];
+        for (const importStr of currentScan.relativeImports) {
             if (!importStr) continue;
 
             const depResolved = resolveRelativeImport(importStr, current.file, root);
@@ -268,16 +305,17 @@ function analyzeFileContext(
 
                 try {
                     const depContent = fs.readFileSync(depResolved, "utf-8");
-                    const depExports = extractExportedDeclarations(depContent);
+                    const depScan = scanSource(depContent);
+                    const depExports = depScan.ownExports;
                     if (depExports.length > 0) {
                         dependencyExports[relDep] = depExports;
                     }
+
+                    if (current.depth + 1 < maxDepth) {
+                        toVisit.push({ file: depResolved, depth: current.depth + 1, scan: depScan });
+                    }
                 } catch {
                     warnings.push(`Could not read dependency: ${relDep}`);
-                }
-
-                if (current.depth + 1 < maxDepth) {
-                    toVisit.push({ file: depResolved, depth: current.depth + 1 });
                 }
             }
         }
