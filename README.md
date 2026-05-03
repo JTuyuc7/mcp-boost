@@ -69,4 +69,4 @@ Required repo secret:
 5. Merge PRs with changesets into `master`.
 
 ------
-Developed by Jaime T
+Developed by Jaime T (JTuyuc7)
