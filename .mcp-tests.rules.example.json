@@ -1,0 +1,12 @@
+{
+  "typeSafety": {
+    "enforceNoAny": true,
+    "requireTypeImports": true,
+    "preferTypedFactories": true
+  },
+  "additionalRules": [
+    "Import component props and function input types from the source module under test.",
+    "Avoid inline object literals for entities with many fields; prefer typed test factories."
+  ]
+}
+

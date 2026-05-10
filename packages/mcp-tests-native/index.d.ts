@@ -16,4 +16,3 @@ export interface TestContextScan {
 
 export declare function extractStaticImports(source: string): StaticImportMatch[];
 export declare function scanTestContextSource(source: string): TestContextScan;
-

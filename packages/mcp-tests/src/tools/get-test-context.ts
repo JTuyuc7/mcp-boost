@@ -89,7 +89,30 @@ function resolveRelativeImport(
     // Si ya tiene extensión reconocida, prueba directo
     const knownExts = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"];
     if (knownExts.includes(path.extname(base))) {
-        return fs.existsSync(base) ? base : null;
+        if (fs.existsSync(base)) {
+            return base.startsWith(root) ? base : null;
+        }
+
+        // TS projects often import compiled .js paths from source; try TS siblings.
+        const ext = path.extname(base);
+        if (ext === ".js" || ext === ".jsx" || ext === ".mjs" || ext === ".cjs") {
+            const stem = base.slice(0, -ext.length);
+            const jsToTsCandidates = [
+                `${stem}.ts`,
+                `${stem}.tsx`,
+                `${stem}.mts`,
+                `${stem}.cts`,
+                path.join(stem, "index.ts"),
+                path.join(stem, "index.tsx"),
+            ];
+            for (const candidate of jsToTsCandidates) {
+                if (fs.existsSync(candidate) && candidate.startsWith(root)) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     for (const ext of RESOLVE_EXTS) {
@@ -106,6 +129,82 @@ interface ExtractedDeclaration {
     kind: "interface" | "type" | "enum" | "const" | "function" | "class" | "default" | "other";
     name: string;
     lines: string[];
+}
+
+interface TypeImportSuggestion {
+    name: string;
+    fromFile: string;
+    modulePath: string;
+    confidence: "high" | "medium";
+    reason: string;
+}
+
+const TYPE_NAME_HINT_RE =
+    /(Props|Input|Params|Payload|DTO|Request|Response|Schema|State|Config|Options|Result|Model|Entity)$/;
+
+function toPosixPath(p: string): string {
+    return p.replace(/\\/g, "/");
+}
+
+function toModulePath(file: string): string {
+    const posix = toPosixPath(file);
+    const withoutExt = posix.replace(/\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/, "");
+    return withoutExt.replace(/\/index$/, "");
+}
+
+function shouldSuggestAsType(decl: ExtractedDeclaration): boolean {
+    if (!decl.name || decl.name === "(anonymous)") return false;
+    if (decl.kind === "interface" || decl.kind === "type" || decl.kind === "enum") return true;
+    if (decl.kind === "class") return /^[A-Z]/.test(decl.name);
+    return false;
+}
+
+function inferConfidence(decl: ExtractedDeclaration): "high" | "medium" {
+    if (TYPE_NAME_HINT_RE.test(decl.name)) return "high";
+    if (decl.kind === "interface" || decl.kind === "type") return "high";
+    return "medium";
+}
+
+function collectTypeImportSuggestions(
+    relativePath: string,
+    ownExports: ExtractedDeclaration[],
+    dependencyExports: Record<string, ExtractedDeclaration[]>
+): TypeImportSuggestion[] {
+    const suggestions: TypeImportSuggestion[] = [];
+    const seen = new Set<string>();
+
+    const pushIfNew = (decl: ExtractedDeclaration, fromFile: string, reason: string) => {
+        if (!shouldSuggestAsType(decl)) return;
+        const key = `${decl.name}::${fromFile}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        suggestions.push({
+            name: decl.name,
+            fromFile,
+            modulePath: toModulePath(fromFile),
+            confidence: inferConfidence(decl),
+            reason,
+        });
+    };
+
+    for (const decl of ownExports) {
+        pushIfNew(decl, relativePath, "Exported by the source file under test.");
+    }
+
+    for (const [depFile, decls] of Object.entries(dependencyExports)) {
+        for (const decl of decls) {
+            pushIfNew(decl, depFile, "Exported by a relative dependency used by the source file.");
+        }
+    }
+
+    suggestions.sort((a, b) => {
+        if (a.confidence !== b.confidence) return a.confidence === "high" ? -1 : 1;
+        if (a.fromFile !== b.fromFile) return a.fromFile.localeCompare(b.fromFile);
+        return a.name.localeCompare(b.name);
+    });
+
+    return suggestions;
 }
 
 function normalizeDeclarationKind(kind: string): ExtractedDeclaration["kind"] {
@@ -269,6 +368,7 @@ interface FileContext {
     ownExports: ExtractedDeclaration[];
     /** Declaraciones exportadas de los imports analizados */
     dependencyExports: Record<string, ExtractedDeclaration[]>;
+    requiredTypeImports: TypeImportSuggestion[];
     /** Advertencias (archivo no encontrado, etc.) */
     warnings: string[];
 }
@@ -292,6 +392,7 @@ async function analyzeFileContext(
             firstLevelImports: [],
             ownExports: [],
             dependencyExports: {},
+            requiredTypeImports: [],
             warnings: [`File not found: ${resolved}`],
         };
     }
@@ -355,12 +456,19 @@ async function analyzeFileContext(
         }
     }
 
+    const requiredTypeImports = collectTypeImportSuggestions(
+        path.relative(root, resolved),
+        ownExports,
+        dependencyExports
+    );
+
     return {
         file: resolved,
         relativePath: path.relative(root, resolved),
         firstLevelImports,
         ownExports,
         dependencyExports,
+        requiredTypeImports,
         warnings,
     };
 }
@@ -395,6 +503,18 @@ function formatFileContext(ctx: FileContext): string {
             for (const decl of decls) {
                 parts.push(decl.lines.join("\n"));
             }
+        }
+    }
+
+    if (ctx.requiredTypeImports.length > 0) {
+        parts.push("\n--- Required type imports (suggested) ---");
+        for (const t of ctx.requiredTypeImports.slice(0, 30)) {
+            parts.push(
+                `- ${t.name} from ${t.fromFile} [${t.confidence}]`
+            );
+        }
+        if (ctx.requiredTypeImports.length > 30) {
+            parts.push(`- ... and ${ctx.requiredTypeImports.length - 30} more`);
         }
     }
 
@@ -465,6 +585,7 @@ export function registerGetTestContext(server: McpServer): void {
                     snippet: d.lines.join("\n"),
                 })),
                 firstLevelImports: ctx.firstLevelImports,
+                requiredTypeImports: ctx.requiredTypeImports,
                 dependencyExports: Object.fromEntries(
                     Object.entries(ctx.dependencyExports).map(([dep, decls]) => [
                         dep,

@@ -31,6 +31,9 @@
   ],
   "author": "Jaime Tuyuc",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.12"
+  },
   "packageManager": "pnpm@10.30.2",
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
