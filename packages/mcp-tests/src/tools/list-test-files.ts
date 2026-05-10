@@ -70,6 +70,21 @@ function findSourceForTest(testFile: string, root: string): string | null {
 
     // Eliminar sufijo de test: .test.ts → .ts, .spec.tsx → .tsx, etc.
     const withoutTestSuffix = base.replace(/\.(test|spec)(\.[^.]+)$/, "$2");
+
+    // Root-level __tests__ convention:
+    //   <root>/__tests__/src/foo/bar.test.ts -> <root>/src/foo/bar.ts
+    const rel = path.relative(root, testFile);
+    const relParts = rel.split(path.sep);
+    if (relParts[0] === "__tests__" && relParts.length > 1 && withoutTestSuffix !== base) {
+        const sourceRel = path.join(...relParts.slice(1, -1), withoutTestSuffix);
+        for (const ext of SOURCE_EXTENSIONS) {
+            const candidate = path.join(root, sourceRel.replace(/\.[^.]+$/, ext));
+            if (fs.existsSync(candidate) && !isTestFile(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
     if (withoutTestSuffix === base) {
         // No tiene sufijo reconocible — puede ser __tests__/foo.ts → ../foo.ts
         // intentar subir un nivel
@@ -177,15 +192,15 @@ function buildInventory(
     });
 
     // Build source file entries
-    const testedSourcePaths = new Set(
-        testEntries
-            .filter((e) => e.sourceFile !== null)
-            .map((e) => e.sourceFile!)
-    );
+    const testBySource = new Map<string, TestFileEntry>();
+    for (const entry of testEntries) {
+        if (entry.sourceFile) testBySource.set(entry.sourceFile, entry);
+    }
 
     const sourceEntries: SourceFileEntry[] = allSourceFiles.map((sf) => {
-        // First check if any test entry already maps to this source
-        const existingEntry = testEntries.find((e) => e.sourceFile === sf);
+        // First check if any test entry already maps to this source.
+        // Using a Map keeps inventory building linear for large repositories.
+        const existingEntry = testBySource.get(sf);
         if (existingEntry) {
             return {
                 sourceFile: sf,

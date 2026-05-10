@@ -144,6 +144,84 @@ interface GuidelinesSection {
     rules: string[];
 }
 
+interface TypeSafetyConfig {
+    enforceNoAny: boolean;
+    requireTypeImports: boolean;
+    preferTypedFactories: boolean;
+}
+
+interface UserGuidelinesConfig {
+    typeSafety: TypeSafetyConfig;
+    additionalRules: string[];
+    configPath: string | null;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+function loadUserGuidelinesConfig(root: string): UserGuidelinesConfig {
+    const candidates = [".mcp-tests.rules.json", ".mcp-testsrc.json"];
+
+    const base: UserGuidelinesConfig = {
+        typeSafety: {
+            enforceNoAny: true,
+            requireTypeImports: true,
+            preferTypedFactories: true,
+        },
+        additionalRules: [],
+        configPath: null,
+    };
+
+    for (const rel of candidates) {
+        const abs = path.join(root, rel);
+        if (!fs.existsSync(abs)) continue;
+
+        try {
+            const raw = JSON.parse(fs.readFileSync(abs, "utf-8"));
+            const obj = toRecord(raw);
+            const typeSafetyRaw = toRecord(obj["typeSafety"]);
+
+            const enforceNoAny =
+                typeof typeSafetyRaw["enforceNoAny"] === "boolean"
+                    ? typeSafetyRaw["enforceNoAny"]
+                    : base.typeSafety.enforceNoAny;
+
+            const requireTypeImports =
+                typeof typeSafetyRaw["requireTypeImports"] === "boolean"
+                    ? typeSafetyRaw["requireTypeImports"]
+                    : base.typeSafety.requireTypeImports;
+
+            const preferTypedFactories =
+                typeof typeSafetyRaw["preferTypedFactories"] === "boolean"
+                    ? typeSafetyRaw["preferTypedFactories"]
+                    : base.typeSafety.preferTypedFactories;
+
+            const additionalRules = Array.isArray(obj["additionalRules"])
+                ? obj["additionalRules"].filter((v): v is string => typeof v === "string")
+                : [];
+
+            return {
+                typeSafety: { enforceNoAny, requireTypeImports, preferTypedFactories },
+                additionalRules,
+                configPath: abs,
+            };
+        } catch {
+            return {
+                ...base,
+                configPath: abs,
+                additionalRules: [
+                    `Could not parse ${rel}. Fix JSON syntax to apply custom rules.`,
+                ],
+            };
+        }
+    }
+
+    return base;
+}
+
 function buildGeneralRules(deps: DetectedDeps): GuidelinesSection {
     const runner = deps.hasVitest ? "vitest" : "jest";
     const importRunner = deps.hasVitest
@@ -162,7 +240,39 @@ function buildGeneralRules(deps: DetectedDeps): GuidelinesSection {
             "Mock external modules at the top of the file with \`vi.mock()\` / \`jest.mock()\`.",
             "Reset mocks in \`beforeEach\` to avoid test pollution.",
             "One assertion per test when possible; avoid \`expect\` chains > 3.",
+            "Before writing final tests, call `get_test_context` for the target source and reuse exported types for props/params.",
         ],
+    };
+}
+
+function buildTypeSafetyRules(config: UserGuidelinesConfig): GuidelinesSection {
+    const rules: string[] = [
+        "Prefer concrete types from the source module and its relative dependencies over ad-hoc test-only shapes.",
+        "If the source exports `Props`, `Input`, `DTO`, or domain types, import them with `import type { ... }` and use them in fixtures.",
+        "When mocking complex objects, use typed builders/helpers (e.g. `const makeUser = (overrides: Partial<User> = {}): User => ...`).",
+        "Never leave unresolved type errors in generated tests; adjust imports/mocks until `tsc --noEmit` passes.",
+    ];
+
+    if (config.typeSafety.enforceNoAny) {
+        rules.push("Do NOT use `any` in generated tests. Use source types, `unknown`, or narrow helper types instead.");
+    }
+
+    if (config.typeSafety.requireTypeImports) {
+        rules.push("Always prefer `import type` for compile-time-only symbols to keep runtime imports clean.");
+    }
+
+    if (config.typeSafety.preferTypedFactories) {
+        rules.push("For test data setup, prefer typed factories over inline object literals when objects have 3+ typed fields.");
+    }
+
+    return { title: "Type Safety Rules", rules };
+}
+
+function buildCustomRules(config: UserGuidelinesConfig): GuidelinesSection | null {
+    if (config.additionalRules.length === 0) return null;
+    return {
+        title: "Project Custom Rules",
+        rules: config.additionalRules,
     };
 }
 
@@ -328,11 +438,13 @@ function buildCoverageRules(): GuidelinesSection {
 
 function buildGuidelines(
     deps: DetectedDeps,
-    role: FileRole
+    role: FileRole,
+    config: UserGuidelinesConfig
 ): GuidelinesSection[] {
     const sections: GuidelinesSection[] = [];
 
     sections.push(buildGeneralRules(deps));
+    sections.push(buildTypeSafetyRules(config));
 
     switch (role) {
         case "react-component":
@@ -363,6 +475,9 @@ function buildGuidelines(
     }
 
     sections.push(buildCoverageRules());
+
+    const custom = buildCustomRules(config);
+    if (custom) sections.push(custom);
 
     return sections;
 }
@@ -399,7 +514,8 @@ export function registerGetTestGuidelines(server: McpServer): void {
 
             const deps = detectDeps(root);
             const role = detectFileRole(args.focusFile, root, deps);
-            const sections = buildGuidelines(deps, role);
+            const userConfig = loadUserGuidelinesConfig(root);
+            const sections = buildGuidelines(deps, role, userConfig);
             const markdown = formatGuidelines(sections);
 
             // Detect tsconfig paths presence for path alias note
@@ -439,6 +555,9 @@ export function registerGetTestGuidelines(server: McpServer): void {
                 ].filter(Boolean),
                 fileRole: role,
                 hasPathAliases,
+                customRulesConfig: userConfig.configPath
+                    ? path.relative(root, userConfig.configPath)
+                    : null,
             };
 
             const pathAliasNote = hasPathAliases
@@ -456,6 +575,7 @@ export function registerGetTestGuidelines(server: McpServer): void {
                                 detectedSetup: detectedInfo,
                                 guidelines: markdown + pathAliasNote,
                                 sectionsCount: sections.length,
+                                customRulesApplied: userConfig.configPath !== null,
                             },
                             null,
                             2
