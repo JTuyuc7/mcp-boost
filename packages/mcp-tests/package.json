@@ -52,13 +52,13 @@
   "packageManager": "pnpm@10.30.2",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+    "zod": "^4.3.6"
   },
   "optionalDependencies": {
     "@mcp-boost/tests-native": "workspace:^"
   },
   "devDependencies": {
-    "@types/node": "^25.6.2",
+    "@types/node": "^25.6.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   }
